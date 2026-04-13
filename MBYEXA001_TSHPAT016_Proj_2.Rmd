@@ -68,9 +68,9 @@ soft_max <- function(Z_mat){
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 # Creating the splitted input matrices:
-X_u <- MHL_data[ , 4:5] #Demographic input matrix
-X_v <- MHL_data[ , 2:3] #Nutrition input matrix
-Y <- matrix(MHL_data[ , 1], ncol = 1) #Response vector.
+X_u <- as.matrix(MHL_data[ , 4:5]) #Demographic input matrix
+X_v <- as.matrix(MHL_data[ , 2:3]) #Nutrition input matrix
+Y <- matrix(as.numeric(MHL_data[ , 1]), ncol = 1) #Response vector.
 ```
 
 \section{Part F}
@@ -82,7 +82,7 @@ Y <- matrix(MHL_data[ , 1], ncol = 1) #Response vector.
 # Creating the tanh activation function:
 tanh_z <- function(z){
   
-  result = (exp(z)-exp(-z))/(exp(z)+exp(-z))
+  result = tanh(z)
   return(result)
   
 } 
@@ -90,7 +90,7 @@ tanh_z <- function(z){
 # Creating the logistic activation function:
 logistic_z <- function(z){
   
-  result = 1/(1+exp(-z))
+  result = plogis(-z)
   return(result)
   
 }
@@ -105,26 +105,35 @@ splitBrain_NN <- function(Xu, Xv, Y, theta, m, nu) {
   q = dim(Y)[2]
 
   # Populating the weight and bias matrices:
-  index = 1:(p_u*m)
-  W_u1   = matrix(theta[index], p_u, m)
-  index = (max(index)+1):(max(index)+(p_v*m))
-  W_v1   = matrix(theta[index], p_v, m)
-  index = (max(index)+1):(max(index)+(m))
-  W_u2    = matrix(theta[index], m, 1)
-  index = (max(index)+1):(max(index)+(m))
-  W_v2    = matrix(theta[index], m, 1)
-  index = (max(index)+1):(max(index)+(2*2))
-  W3    = matrix(theta[index], 2, 2)
-  index = (max(index)+1):(max(index)+(m))
-  b_u1 = matrix(theta[index], m, 1)
-  index = (max(index)+1):(max(index)+(m))
-  b_v1 = matrix(theta[index], m, 1)
-  index = max(index)+1
-  b_u2 = matrix(theta[index], 1, 1)
-  index = max(index)+1
-  b_v2 = matrix(theta[index], 1, 1)
-  index = (max(index)+1):(max(index)+(2))
-  b3 = matrix(theta[index], 2, 1)
+  start = 1; end = p_u * m
+  W_u1   = matrix(theta[start:end], p_u, m)
+  
+  start = end + 1; end = end + (p_v * m)
+  W_v1   = matrix(theta[start:end], p_v, m)
+  
+  start = end + 1; end = end + m
+  W_u2   = matrix(theta[start:end], m, 1)
+  
+  start = end + 1; end = end + m
+  W_v2   = matrix(theta[start:end], m, 1)
+  
+  start = end + 1; end = end + 4
+  W3     = matrix(theta[start:end], 2, 2)
+  
+  start = end + 1; end = end + m
+  b_u1   = matrix(theta[start:end], m, 1)
+  
+  start = end + 1; end = end + m
+  b_v1   = matrix(theta[start:end], m, 1)
+  
+  start = end + 1; end = end + 1
+  b_u2   = matrix(theta[start:end], 1, 1)
+  
+  start = end + 1; end = end + 1
+  b_v2   = matrix(theta[start:end], 1, 1)
+  
+  start = end + 1; end = end + 2
+  b3     = matrix(theta[start:end], 2, 1)
   
   # Evaluate the network:
   Yhat = matrix(NA, N, q) # Creating storage
@@ -141,7 +150,8 @@ splitBrain_NN <- function(Xu, Xv, Y, theta, m, nu) {
   Y_2 = cbind(Y, Y)
   
   # Evaluating the objective:
-  E1_mat = -(Y_2*log(t(A3))+(matrix(1,N,2)-Y_2)*log(matrix(1,N,2)-t(A3))) # Cross-entropy objective.
+  eps = 1e-10
+  E1_mat = -(Y_2*log(t(A3)+eps)+(matrix(1,N,2)-Y_2)*log(matrix(1,N,2)-t(A3)+eps)) # Cross-entropy objective.
   E1 = sum(apply(E1_mat, 2, sum))
   E2 = E1+nu/N*(sum(W_u1^2)+sum(W_v1^2)+sum(W_u2^2)+sum(W_v2^2)+sum(W3^2))
   return(list(Yhat = Yhat, E1 = E1, E2 = E2))
@@ -155,12 +165,12 @@ set.seed(2026)
 
 N = dim(X_u)[1]
 set  = sample(1:N, 0.8*N, replace = FALSE) 
-Xtrain_u = matrix(X_u[set, ], ncol = 4)
-Xtrain_v = matrix(X_v[set, ], ncol = 4)
-Ytrain = matrix(Y[set, ], ncol = 1)
-Xval_u   = matrix(X_u[-set,], ncol = 4)
-Xval_v   = matrix(X_v[-set, ], ncol = 4)
-Yval   = matrix(Y[-set, ],ncol = 1)
+Xtrain_u = as.matrix(X_u[set, ])
+Xtrain_v = as.matrix(X_v[set, ])
+Ytrain = as.matrix(Y[set, ])
+Xval_u   = as.matrix(X_u[-set,])
+Xval_v   = as.matrix(X_v[-set, ])
+Yval   = as.matrix(Y[-set, ])
 
 # Obtaining useful dimension values:
 m     = 4
@@ -180,14 +190,14 @@ obj_pen = function(pars)
 #===============================================================================
 # Performing regularization:
 #===============================================================================
-n_val = 10
+n_val = 15
 nu_seq = exp(seq(-5,3,length = n_val)) # Sequence of learning rate.
 Eval   = rep(NA, n_val) # Storage vector for
 
 for(i in 1:n_val)
 {
 	nu      = nu_seq[i]
-  res_opt = nlm(obj_pen,theta_rand,iterlim = 1000) # Using training data.
+  res_opt = nlm(obj_pen,theta_rand,iterlim = 1500) # Using training data.
 	res_val = splitBrain_NN(Xval_u, Xval_v, Yval, res_opt$estimate, m, 0) # Using validation data.
   Eval[i] = res_val$E1 # Unpenalised objective value at current iteration.
 }
