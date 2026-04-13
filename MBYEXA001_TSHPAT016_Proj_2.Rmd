@@ -1,0 +1,291 @@
+---
+title: "Analytics Project 2"
+author: "Exauce Mbuyi & Patrick Tesha"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(patchwork)
+MHL_data <- read.table("HittingTheWall_2026.txt", header = TRUE)
+```
+
+\section{Question 1: Part A}
+
+```{r message=FALSE, warning=FALSE}
+# Producing 2 scatterplots of the data:
+
+  # Plot Carbs against AveSpeed, by Bombed level: 
+plot1 <- ggplot(MHL_data, aes(x = AveSpeed, y = Carbs, color = Bombed, shape = Bombed)) +
+  geom_point()
+
+  # Plot Carbs against Fluid, by Bombed level:
+plot2 <- ggplot(MHL_data, aes(x = Fluid, y = Carbs, color = Bombed, shape = Bombed)) +
+  geom_point()
+
+plot1 + plot2
+```
+
+
+```{r message=FALSE, warning=FALSE}
+# Producing boxplots of Carbs by Sex:
+
+ggplot(MHL_data, aes(x = AveSpeed, y = Carbs, fill = factor(Sex)))+
+  geom_boxplot() +
+  facet_grid(Bombed ~ Sex)
+
+```
+
+
+\section{Part C}
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Creating the activation function:
+
+soft_max <- function(Z_mat){
+  
+  max_Z = apply(Z_mat, 2, max) #Obtaining the max z value for each column
+  
+  diff_Mat = Z_mat - matrix(max_Z, nrow = dim(Z_mat)[1], ncol = dim(Z_mat)[2], byrow = T)
+  
+  colSum_Vector = colSums(diff_Mat) #Sum the columns
+  colSum_Mat = matrix(colSum_Vector, nrow = dim(Z_mat)[1], ncol = dim(Z_mat)[2]) #creating a matrix of column sums
+  
+  diff_Mat = apply(diff_Mat, c(1,2), function(x) exp(x))
+  
+  softMax_Mat = diff_Mat/colSum_Mat
+  
+  return(softMax_Mat)
+  
+}
+```
+
+\section{Part D}
+
+\section{Part E}
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Creating the splitted input matrices:
+X_u <- MHL_data[ , 4:5] #Demographic input matrix
+X_v <- MHL_data[ , 2:3] #Nutrition input matrix
+Y <- matrix(MHL_data[ , 1], ncol = 1) #Response vector.
+```
+
+\section{Part F}
+
+
+\section{Part G}
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Creating the tanh activation function:
+tanh_z <- function(z){
+  
+  result = (exp(z)-exp(-z))/(exp(z)+exp(-z))
+  return(result)
+  
+} 
+
+# Creating the logistic activation function:
+logistic_z <- function(z){
+  
+  result = 1/(1+exp(-z))
+  return(result)
+  
+}
+
+# Evaluation of the split brain NN for the first hidden layer.
+splitBrain_NN <- function(Xu, Xv, Y, theta, m, nu) {
+  
+  #obtaining the dimension variables:
+  N = dim(Xu)[1] #Number of observations in data set
+  p_u = dim(Xu)[2] #Number of inputs for variable 1
+  p_v = dim(Xv)[2] #Number of inputs for variable 2
+  q = dim(Y)[2]
+
+  # Populating the weight and bias matrices:
+  index = 1:(p_u*m)
+  W_u1   = matrix(theta[index], p_u, m)
+  index = (max(index)+1):(max(index)+(p_v*m))
+  W_v1   = matrix(theta[index], p_v, m)
+  index = (max(index)+1):(max(index)+(m))
+  W_u2    = matrix(theta[index], m, 1)
+  index = (max(index)+1):(max(index)+(m))
+  W_v2    = matrix(theta[index], m, 1)
+  index = (max(index)+1):(max(index)+(2*2))
+  W3    = matrix(theta[index], 2, 2)
+  index = (max(index)+1):(max(index)+(m))
+  b_u1 = matrix(theta[index], m, 1)
+  index = (max(index)+1):(max(index)+(m))
+  b_v1 = matrix(theta[index], m, 1)
+  index = max(index)+1
+  b_u2 = matrix(theta[index], 1, 1)
+  index = max(index)+1
+  b_v2 = matrix(theta[index], 1, 1)
+  index = (max(index)+1):(max(index)+(2))
+  b3 = matrix(theta[index], 2, 1)
+  
+  # Evaluate the network:
+  Yhat = matrix(NA, N, q) # Creating storage
+  ones = matrix(1,N,1) # Vector of ones
+  A_u0   = t(Xu)
+  A_v0   = t(Xv)
+  A_u1   = tanh_z(t(W_u1)%*%A_u0 + b_u1%*%t(ones))
+  A_v1   = tanh_z(t(W_v1)%*%A_v0 + b_v1%*%t(ones))
+  A_u2   = tanh_z(t(W_u2)%*%A_u1 + b_u2%*%t(ones))
+  A_v2   = tanh_z(t(W_v2)%*%A_v1 + b_v2%*%t(ones))
+  A2     = rbind(A_u2, A_v2)
+  A3     = logistic_z(t(W3)%*%A2 + b3%*%t(ones))
+  Yhat = t(A3)
+  Y_2 = cbind(Y, Y)
+  
+  # Evaluating the objective:
+  E1_mat = -(Y_2*log(t(A3))+(matrix(1,N,2)-Y_2)*log(matrix(1,N,2)-t(A3))) # Cross-entropy objective.
+  E1 = sum(apply(E1_mat, 2, sum))
+  E2 = E1+nu/N*(sum(W_u1^2)+sum(W_v1^2)+sum(W_u2^2)+sum(W_v2^2)+sum(W3^2))
+  return(list(Yhat = Yhat, E1 = E1, E2 = E2))
+}
+```
+
+\section{Part F}
+
+```{r message=FALSE, warning=FALSE}
+set.seed(2026)
+
+N = dim(X_u)[1]
+set  = sample(1:N, 0.8*N, replace = FALSE) 
+Xtrain_u = matrix(X_u[set, ], ncol = 4)
+Xtrain_v = matrix(X_v[set, ], ncol = 4)
+Ytrain = matrix(Y[set, ], ncol = 1)
+Xval_u   = matrix(X_u[-set,], ncol = 4)
+Xval_v   = matrix(X_v[-set, ], ncol = 4)
+Yval   = matrix(Y[-set, ],ncol = 1)
+
+# Obtaining useful dimension values:
+m     = 4
+p_u   = dim(X_u)[2]
+p_v   = dim(X_v)[2]
+q     = 1
+npars = p_u*m+p_v*m+m+m+4+m+m+1+1+2 # Number parameters in the model.
+theta_rand = runif(npars,-1,1)
+
+# Evaluating the penalised objective:
+obj_pen = function(pars)
+{
+	 res = splitBrain_NN(Xtrain_u, Xtrain_v, Ytrain, pars, m, nu) 
+	 return(res$E2)
+}
+
+#===============================================================================
+# Performing regularization:
+#===============================================================================
+n_val = 10
+nu_seq = exp(seq(-5,3,length = n_val)) # Sequence of learning rate.
+Eval   = rep(NA, n_val) # Storage vector for
+
+for(i in 1:n_val)
+{
+	nu      = nu_seq[i]
+  res_opt = nlm(obj_pen,theta_rand,iterlim = 1000) # Using training data.
+	res_val = splitBrain_NN(Xval_u, Xval_v, Yval, res_opt$estimate, m, 0) # Using validation data.
+  Eval[i] = res_val$E1 # Unpenalised objective value at current iteration.
+}
+
+plot(nu_seq, Eval, 
+     pch = 16,
+     type = 'o',
+     main = 'Validation Error by Regularization Parameter',
+     xlab =  'Regularization Parameter',
+     ylab = 'Validation Error',
+     col = 'blue')
+#===============================================================================
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
