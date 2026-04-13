@@ -1,2 +1,2 @@
 # Hitting-the-Wall---Neural-Network
-A mathematical model for optimizing fluid and carbohydrate intake strategies during a marathon to prevent bonking — the performance collapse caused by glycogen depletion and dehydration.
+This project focuses on using a double hidden-layer neural network to model the appropriate amount of fluids and fuels, such as carbohydrate intake, to take in during the marathon to prevent bombing
