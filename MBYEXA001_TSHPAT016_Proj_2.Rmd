@@ -48,17 +48,14 @@ soft_max <- function(Z_mat){
   
   max_Z = apply(Z_mat, 2, max) #Obtaining the max z value for each column
   
-  diff_Mat = Z_mat - matrix(max_Z, nrow = dim(Z_mat)[1], ncol = dim(Z_mat)[2], byrow = T)
+  diff_Mat = Z_mat - matrix(max_Z, nrow = nrow(Z_mat), ncol = ncol(Z_mat), byrow = T)
   
-  colSum_Vector = colSums(diff_Mat) #Sum the columns
-  colSum_Mat = matrix(colSum_Vector, nrow = dim(Z_mat)[1], ncol = dim(Z_mat)[2]) #creating a matrix of column sums
+  exp_Mat = exp(diff_Mat)
+  colSum_Vector = colSums(exp_Mat) #Sum exponentials in the columns
   
-  diff_Mat = apply(diff_Mat, c(1,2), function(x) exp(x))
+  colSum_Mat = matrix(colSum_Vector, nrow = nrow(Z_mat), ncol = ncol(Z_mat)) #creating a matrix of column sums
   
-  softMax_Mat = diff_Mat/colSum_Mat
-  
-  return(softMax_Mat)
-  
+  return(exp_Mat/colSum_Mat)
 }
 ```
 
@@ -90,7 +87,7 @@ tanh_z <- function(z){
 # Creating the logistic activation function:
 logistic_z <- function(z){
   
-  result = plogis(-z)
+  result = plogis(z)
   return(result)
   
 }
@@ -145,7 +142,7 @@ splitBrain_NN <- function(Xu, Xv, Y, theta, m, nu) {
   A_u2   = tanh_z(t(W_u2)%*%A_u1 + b_u2%*%t(ones))
   A_v2   = tanh_z(t(W_v2)%*%A_v1 + b_v2%*%t(ones))
   A2     = rbind(A_u2, A_v2)
-  A3     = logistic_z(t(W3)%*%A2 + b3%*%t(ones))
+  A3     = soft_max(t(W3)%*%A2 + b3%*%t(ones))
   Yhat = t(A3)
   Y_2 = cbind(Y, Y)
   
@@ -178,7 +175,7 @@ p_u   = dim(X_u)[2]
 p_v   = dim(X_v)[2]
 q     = 1
 npars = p_u*m+p_v*m+m+m+4+m+m+1+1+2 # Number parameters in the model.
-theta_rand = runif(npars,-1,1)
+theta_rand = rnorm(npars, 0, 0.1)
 
 # Evaluating the penalised objective:
 obj_pen = function(pars)
@@ -191,15 +188,16 @@ obj_pen = function(pars)
 # Performing regularization:
 #===============================================================================
 n_val = 15
-nu_seq = exp(seq(-5,3,length = n_val)) # Sequence of learning rate.
+nu_seq = log(exp(seq(-5,3,length = n_val))) # Sequence of learning rate.
 Eval   = rep(NA, n_val) # Storage vector for
 
 for(i in 1:n_val)
 {
 	nu      = nu_seq[i]
-  res_opt = nlm(obj_pen,theta_rand,iterlim = 1500) # Using training data.
+  res_opt = nlm(obj_pen,theta_rand,iterlim = 1000) # Using training data.
 	res_val = splitBrain_NN(Xval_u, Xval_v, Yval, res_opt$estimate, m, 0) # Using validation data.
-  Eval[i] = res_val$E1 # Unpenalised objective value at current iteration.
+	#theta_rand = res_opt$estimate
+  Eval[i] = (res_val$E1)/N # Unpenalised objective value at current iteration.
 }
 
 plot(nu_seq, Eval, 
